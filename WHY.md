@@ -58,7 +58,9 @@ Every decision below follows this principle. More convention = less hallucinatio
 | **Git Hooks** | pre-commit | Enforces standards automatically. Agents can rely on consistent formatting. | Manual linting | Inconsistent code quality → drift accumulates. |
 | **Documentation** | ARCHITECTURE.md | Explicit system map. Agents use it as grounding context. | README-only | Too shallow → lacks structural guidance. |
 | **Reference Implementation** | Example feature (CRUD) | Concrete pattern to copy. Agents learn by imitation. | No example | Agents must infer patterns → higher error rate. |
-| **Agent Rules** | AGENTS.md (root + per app) | Defines constraints and workflow. Reduces ambiguity in multi-agent environments. | No agent spec | Agents improvise → inconsistent architecture. |
+| **Structured Logging** | structlog | Key-value logging enforces structured output. Agents produce consistent, searchable log events instead of ad-hoc f-strings. | stdlib logging | Free-form messages → agents generate inconsistent, unparseable logs. |
+| **CI/CD** | GitHub Actions | Pre-configured pipeline validates backend, frontend, and contract consistency. Agents get immediate feedback on breaking changes. | No CI | Silent regressions → agents don't know when they break things. |
+| **Agent Rules** | AGENTS.md (root + per app) | Defines constraints and workflow at three levels: root (architecture), backend (layer rules, logging, DB conventions), frontend (data fetching, forms, Zustand). | No agent spec | Agents improvise → inconsistent architecture. |
 
 ---
 
@@ -105,6 +107,28 @@ The template ships with a complete CRUD feature for `items`. This isn't just a d
 
 Agents are better at imitation than invention. By providing one working example of the full stack (model → schema → repository → service → router → TanStack Query hook → form component → list component), agents can replicate the pattern with high fidelity instead of inventing from scratch.
 
+### Structured Logging (structlog)
+
+```python
+# Good — structured, searchable, agent-friendly
+logger.info("item_created", item_id=item.id, title=item.title)
+
+# Bad — free-form, hard to parse, inconsistent
+logger.info(f"Created item {item.id} with title {item.title}")
+```
+
+Agents frequently ignore logging or produce inconsistent log messages. By including structlog from day one with explicit rules in the backend `AGENTS.md` (INFO for success, WARNING for expected failures, ERROR for unexpected), agents produce structured, parseable logs without additional prompting.
+
+### Three-Level Agent Instructions
+
+```
+AGENTS.md (root)          ← Architecture, feature checklist, naming conventions
+apps/backend/AGENTS.md    ← Layer rules, DB conventions, error handling, logging
+apps/frontend/AGENTS.md   ← Data fetching rules, form patterns, Zustand usage, styling
+```
+
+Root-level instructions are too broad to cover layer-specific nuances. Per-app `AGENTS.md` files give agents precisely scoped rules for the context they're working in — backend agents get repository/service/router constraints, frontend agents get hook/component/styling rules.
+
 ### Feature-Based Frontend Organization
 
 ```
@@ -131,7 +155,9 @@ Optimizing for agents means making tradeoffs that would be wrong for a human-fir
 | Custom CSS architecture | Tailwind utilities (no naming decisions) |
 | Gradually typed JS | Full TypeScript from day one |
 | Microservices from the start | Monorepo with clear boundaries |
-| Docs as afterthought | AGENTS.md, ARCHITECTURE.md baked in |
+| No logging setup | structlog with explicit agent rules |
+| No CI | GitHub Actions with contract drift detection |
+| Docs as afterthought | AGENTS.md (3 levels), ARCHITECTURE.md baked in |
 
 ---
 

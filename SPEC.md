@@ -32,8 +32,11 @@
 ├── .env.example
 ├── .gitignore
 ├── .pre-commit-config.yaml
+├── .github/
+│   └── workflows/
+│       └── ci.yml                 # GitHub Actions CI
 ├── ARCHITECTURE.md
-├── AGENTS.md
+├── AGENTS.md                      # Root agent instructions
 ├── CLAUDE.md
 │
 ├── packages/
@@ -43,6 +46,7 @@
 │
 ├── apps/
 │   ├── backend/
+│   │   ├── AGENTS.md                  # Backend-specific agent rules
 │   │   ├── Dockerfile
 │   │   ├── pyproject.toml
 │   │   ├── alembic.ini
@@ -56,6 +60,7 @@
 │   │   │   ├── config.py
 │   │   │   ├── database.py
 │   │   │   ├── exceptions.py
+│   │   │   ├── logging.py          # structlog setup
 │   │   │   ├── models/
 │   │   │   │   ├── __init__.py
 │   │   │   │   └── item.py         # SQLAlchemy model
@@ -77,6 +82,7 @@
 │   │       └── test_items.py
 │   │
 │   └── frontend/
+│       ├── AGENTS.md                  # Frontend-specific agent rules
 │       ├── Dockerfile
 │       ├── package.json
 │       ├── tsconfig.json
@@ -91,6 +97,7 @@
 │       │   │   └── providers.tsx    # QueryClientProvider
 │       │   ├── lib/
 │       │   │   ├── api-client.ts    # Generated types + fetch wrapper
+│       │   │   ├── store.ts         # Zustand store for UI state
 │       │   │   └── utils.ts         # cn() helper for shadcn
 │       │   ├── features/
 │       │   │   └── items/
@@ -606,7 +613,41 @@ async def app_exception_handler(request: Request, exc: AppException) -> JSONResp
     )
 ```
 
-### 4.11 Backend: Main — `apps/backend/app/main.py`
+### 4.11 Backend: Structured Logging — `apps/backend/app/logging.py`
+
+```python
+import logging
+import sys
+
+import structlog
+
+
+def setup_logging(log_level: str = "INFO") -> None:
+    structlog.configure(
+        processors=[
+            structlog.contextvars.merge_contextvars,
+            structlog.stdlib.filter_by_level,
+            structlog.stdlib.add_logger_name,
+            structlog.stdlib.add_log_level,
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.processors.StackInfoRenderer(),
+            structlog.processors.format_exc_info,
+            structlog.processors.UnicodeDecoder(),
+            structlog.dev.ConsoleRenderer(),
+        ],
+        wrapper_class=structlog.stdlib.BoundLogger,
+        context_class=dict,
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        cache_logger_on_first_use=True,
+    )
+    logging.basicConfig(
+        format="%(message)s",
+        stream=sys.stdout,
+        level=getattr(logging, log_level.upper()),
+    )
+```
+
+### 4.12 Backend: Main — `apps/backend/app/main.py`
 
 ```python
 from fastapi import FastAPI
@@ -615,6 +656,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.items import router as items_router
 from app.config import settings
 from app.exceptions import AppException, app_exception_handler
+from app.logging import setup_logging
+
+setup_logging()
 
 app = FastAPI(title=settings.app_name)
 
@@ -630,7 +674,7 @@ app.add_exception_handler(AppException, app_exception_handler)
 app.include_router(items_router)
 ```
 
-### 4.12 Backend: pyproject.toml — `apps/backend/pyproject.toml`
+### 4.13 Backend: pyproject.toml — `apps/backend/pyproject.toml`
 
 ```toml
 [project]
@@ -645,6 +689,7 @@ dependencies = [
     "alembic>=1.14",
     "pydantic>=2.0",
     "pydantic-settings>=2.0",
+    "structlog>=24.0",
 ]
 
 [project.optional-dependencies]
@@ -653,6 +698,7 @@ dev = [
     "pytest-asyncio>=0.24",
     "httpx>=0.27",
     "ruff>=0.8",
+    "aiosqlite>=0.20",
 ]
 
 [tool.ruff]
@@ -666,7 +712,7 @@ select = ["E", "F", "I", "N", "UP"]
 asyncio_mode = "auto"
 ```
 
-### 4.13 Backend: Alembic — `apps/backend/alembic/env.py`
+### 4.14 Backend: Alembic — `apps/backend/alembic/env.py`
 
 ```python
 import asyncio
@@ -716,7 +762,7 @@ else:
     asyncio.run(run_migrations_online())
 ```
 
-### 4.14 Backend: First Migration — `apps/backend/alembic/versions/001_create_items_table.py`
+### 4.15 Backend: First Migration — `apps/backend/alembic/versions/001_create_items_table.py`
 
 ```python
 """create items table
@@ -752,7 +798,7 @@ def downgrade() -> None:
     op.drop_table("items")
 ```
 
-### 4.15 Backend: Tests — `apps/backend/tests/conftest.py`
+### 4.16 Backend: Tests — `apps/backend/tests/conftest.py`
 
 ```python
 import pytest
@@ -796,7 +842,7 @@ async def client(session):
     app.dependency_overrides.clear()
 ```
 
-### 4.16 Backend: Tests — `apps/backend/tests/test_items.py`
+### 4.17 Backend: Tests — `apps/backend/tests/test_items.py`
 
 ```python
 import pytest
@@ -850,7 +896,7 @@ async def test_delete_item(client: AsyncClient):
 
 ---
 
-### 4.17 Frontend: API Client — `apps/frontend/src/lib/api-client.ts`
+### 4.18 Frontend: API Client — `apps/frontend/src/lib/api-client.ts`
 
 ```typescript
 // This file wraps the generated OpenAPI types with typed fetch functions.
@@ -904,7 +950,7 @@ export const itemsApi = {
 };
 ```
 
-### 4.18 Frontend: TanStack Query Hooks — `apps/frontend/src/features/items/api.ts`
+### 4.19 Frontend: TanStack Query Hooks — `apps/frontend/src/features/items/api.ts`
 
 ```typescript
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -953,7 +999,7 @@ export function useDeleteItem() {
 }
 ```
 
-### 4.19 Frontend: Zod Schema — `apps/frontend/src/features/items/schema.ts`
+### 4.20 Frontend: Zod Schema — `apps/frontend/src/features/items/schema.ts`
 
 ```typescript
 import { z } from "zod";
@@ -973,7 +1019,7 @@ export type ItemCreateForm = z.infer<typeof itemCreateSchema>;
 export type ItemUpdateForm = z.infer<typeof itemUpdateSchema>;
 ```
 
-### 4.20 Frontend: ItemForm Component — `apps/frontend/src/features/items/ItemForm.tsx`
+### 4.21 Frontend: ItemForm Component — `apps/frontend/src/features/items/ItemForm.tsx`
 
 ```tsx
 "use client";
@@ -1037,7 +1083,7 @@ export function ItemForm() {
 }
 ```
 
-### 4.21 Frontend: ItemList Component — `apps/frontend/src/features/items/ItemList.tsx`
+### 4.22 Frontend: ItemList Component — `apps/frontend/src/features/items/ItemList.tsx`
 
 ```tsx
 "use client";
@@ -1090,7 +1136,25 @@ export function ItemList() {
 }
 ```
 
-### 4.22 Frontend: Providers — `apps/frontend/src/app/providers.tsx`
+### 4.23 Frontend: Zustand Store — `apps/frontend/src/lib/store.ts`
+
+```typescript
+import { create } from "zustand";
+
+interface AppState {
+  sidebarOpen: boolean;
+  toggleSidebar: () => void;
+  setSidebarOpen: (open: boolean) => void;
+}
+
+export const useAppStore = create<AppState>((set) => ({
+  sidebarOpen: true,
+  toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+  setSidebarOpen: (open) => set({ sidebarOpen: open }),
+}));
+```
+
+### 4.24 Frontend: Providers — `apps/frontend/src/app/providers.tsx`
 
 ```tsx
 "use client";
@@ -1117,7 +1181,7 @@ export function Providers({ children }: { children: ReactNode }) {
 }
 ```
 
-### 4.23 Frontend: Root Layout — `apps/frontend/src/app/layout.tsx`
+### 4.25 Frontend: Root Layout — `apps/frontend/src/app/layout.tsx`
 
 ```tsx
 import type { Metadata } from "next";
@@ -1143,7 +1207,7 @@ export default function RootLayout({
 }
 ```
 
-### 4.24 Frontend: Home Page — `apps/frontend/src/app/page.tsx`
+### 4.26 Frontend: Home Page — `apps/frontend/src/app/page.tsx`
 
 ```tsx
 import { ItemList } from "@/features/items/ItemList";
@@ -1305,7 +1369,10 @@ repos:
     "@tanstack/react-query": "^5",
     "react-hook-form": "^7",
     "@hookform/resolvers": "^3",
-    "zod": "^3"
+    "zod": "^3",
+    "zustand": "^4",
+    "clsx": "^2",
+    "tailwind-merge": "^2"
   },
   "devDependencies": {
     "typescript": "^5",
@@ -1323,7 +1390,30 @@ repos:
 
 ---
 
-## 6. AGENTS.md (Root)
+## 6. Per-App Agent Instructions
+
+### 6.1 `apps/backend/AGENTS.md`
+
+Contains backend-specific layer rules (Router, Service, Repository, Model, Schema), testing patterns, error handling conventions, database conventions, and structured logging guidelines. See `PROMPT-IMPROVEMENTS.md` Section 1 for full content.
+
+Key additions beyond root `AGENTS.md`:
+- Strict layer import rules (routers never import SQLAlchemy, services never import FastAPI except HTTPException)
+- Repository error handling: return `None`, never raise
+- structlog usage: `logger.info("event_name", key=value)`, never f-strings in logs
+- Database conventions: plural snake_case tables, `String(n)` with explicit length
+
+### 6.2 `apps/frontend/AGENTS.md`
+
+Contains frontend-specific rules for data fetching, types, components, forms, styling, and Zustand usage. See `PROMPT-IMPROVEMENTS.md` Section 1 for full content.
+
+Key additions beyond root `AGENTS.md`:
+- Zustand: only for client-side UI state, never server data. Always use selector pattern
+- Components in `components/ui/` never import from `features/` or `lib/api-client.ts`
+- File naming conventions: PascalCase for components, camelCase for hooks/utilities
+
+---
+
+## 7. AGENTS.md (Root)
 
 ```markdown
 # Agent Instructions
@@ -1400,7 +1490,7 @@ Follow this exact order. Do NOT skip steps.
 - Shared UI components: `apps/frontend/src/components/ui/`
 ```
 
-## 7. CLAUDE.md (Root)
+## 8. CLAUDE.md (Root)
 
 ```markdown
 # CLAUDE.md
@@ -1438,13 +1528,13 @@ Follow the checklist in AGENTS.md exactly. Copy the `items` feature as template.
 
 ## Tech Stack
 
-- Backend: Python 3.12, FastAPI, SQLAlchemy 2.0 (async), Alembic, Pydantic v2
-- Frontend: Next.js 14, TypeScript, Tailwind CSS, shadcn/ui, TanStack Query, React Hook Form, Zod
-- Infra: PostgreSQL 16 (Docker), pnpm workspaces
+- Backend: Python 3.12, FastAPI, SQLAlchemy 2.0 (async), Alembic, Pydantic v2, structlog
+- Frontend: Next.js 14, TypeScript, Tailwind CSS, shadcn/ui, TanStack Query, React Hook Form, Zod, Zustand
+- Infra: PostgreSQL 16 (Docker), pnpm workspaces, GitHub Actions CI
 - Tools: Ruff (lint/format), pytest, Vitest, pre-commit
 ```
 
-## 8. ARCHITECTURE.md
+## 9. ARCHITECTURE.md
 
 ```markdown
 # Architecture
@@ -1498,7 +1588,7 @@ Each layer has ONE responsibility:
 ```
 src/
   app/           ← Next.js pages and layouts
-  lib/           ← Shared utilities (api-client, cn helper)
+  lib/           ← Shared utilities (api-client, store, cn helper)
   features/      ← Feature modules (self-contained)
     items/
       api.ts     ← TanStack Query hooks (data layer)
@@ -1512,7 +1602,19 @@ src/
 
 ---
 
-## 9. Instructions for the Code Agent
+## 10. GitHub Actions CI — `.github/workflows/ci.yml`
+
+Three jobs run on push/PR to `main`:
+
+- **backend**: Lint (Ruff), test (pytest) against a PostgreSQL 16 service container
+- **frontend**: Lint, test (Vitest), build
+- **contracts**: Regenerate TypeScript types and fail if uncommitted changes exist (catches spec/type drift)
+
+See `PROMPT-IMPROVEMENTS.md` Section 4 for the full workflow YAML.
+
+---
+
+## 11. Instructions for the Code Agent
 
 When you receive this document in Claude Code, execute the following:
 

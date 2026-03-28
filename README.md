@@ -16,8 +16,11 @@ After scaffolding, you'll have a production-ready monorepo with:
 - **Type-safe API client** — auto-generated from OpenAPI, zero manual wrappers
 - **Data layer** — TanStack Query + React Hook Form + Zod
 - **Infra** — Docker Compose for local PostgreSQL
+- **Structured logging** — structlog with contextual key-value logging
+- **Global state** — Zustand store for client-side UI state
+- **CI/CD** — GitHub Actions workflow for backend, frontend, and contract validation
 - **DX tools** — Justfile, Ruff, pre-commit, Vitest, pytest
-- **Agent docs** — `AGENTS.md`, `ARCHITECTURE.md`, `CLAUDE.md` baked in from day one
+- **Agent docs** — `AGENTS.md` (root + per-app), `ARCHITECTURE.md`, `CLAUDE.md` baked in from day one
 
 See [`WHY.md`](./WHY.md) for the reasoning behind every choice.
 
@@ -89,18 +92,22 @@ my-project/
 │   │   │   ├── repositories/ # Data access
 │   │   │   ├── models/       # SQLAlchemy models
 │   │   │   ├── schemas/      # Pydantic schemas
+│   │   │   ├── logging.py    # structlog setup
 │   │   │   └── main.py
+│   │   ├── AGENTS.md             # Backend-specific agent rules
 │   │   └── tests/
 │   └── frontend/             # Next.js application
+│       ├── AGENTS.md             # Frontend-specific agent rules
 │       └── src/
 │           ├── app/          # Next.js pages & layouts
 │           ├── features/     # Feature modules (e.g. items/)
 │           ├── components/ui # shadcn/ui primitives
-│           └── lib/          # Shared utilities
+│           └── lib/          # Shared utilities (api-client, store, cn)
 ├── packages/
 │   ├── contracts/            # openapi.yaml (source of truth)
 │   └── client/               # Generated TypeScript types
-├── AGENTS.md                 # Rules for AI agents
+├── .github/workflows/ci.yml # GitHub Actions CI
+├── AGENTS.md                 # Rules for AI agents (root)
 ├── ARCHITECTURE.md           # System map
 ├── CLAUDE.md                 # Claude Code context
 ├── justfile                  # Task runner
@@ -139,6 +146,16 @@ See `AGENTS.md` in the generated project for the full checklist. The short versi
 4. Create migration (`just db-migrate "add <feature> table"`)
 5. Create frontend files (`api.ts → schema.ts → List.tsx → Form.tsx`)
 6. Write tests
+
+---
+
+## 🔧 CI/CD
+
+The template includes a GitHub Actions workflow (`.github/workflows/ci.yml`) that runs on every push and PR to `main`:
+
+- **Backend job** — Lint with Ruff, run pytest against a real PostgreSQL service container
+- **Frontend job** — Lint, test (Vitest), build
+- **Contracts job** — Regenerate TypeScript types from OpenAPI spec and fail if there are uncommitted changes (catches spec/type drift)
 
 ---
 
