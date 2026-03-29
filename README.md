@@ -11,7 +11,10 @@ Every architectural decision in this template was made to minimize ambiguity, ma
 After scaffolding, you'll have a production-ready monorepo with:
 
 - **Backend** — FastAPI + SQLAlchemy 2.0 (async) + Alembic + Pydantic v2
+- **Authentication** — JWT tokens in httpOnly cookies, registration, login, logout, `/me` endpoint
+- **Admin panel** — SQLAdmin mounted at `/admin` with superuser-only access
 - **Frontend** — Next.js 14 + TypeScript + Tailwind CSS + shadcn/ui
+- **Auth UI** — Login and registration forms, auth-aware routing, protected pages
 - **Contracts** — OpenAPI spec as the single source of truth
 - **Type-safe API client** — auto-generated from OpenAPI, zero manual wrappers
 - **Data layer** — TanStack Query + React Hook Form + Zod
@@ -19,6 +22,8 @@ After scaffolding, you'll have a production-ready monorepo with:
 - **Structured logging** — structlog with contextual key-value logging
 - **Global state** — Zustand store for client-side UI state
 - **CI/CD** — GitHub Actions workflow for backend, frontend, and contract validation
+- **Seed data** — `just seed` creates admin user and sample items
+- **Health check** — `GET /api/health` with database connectivity status
 - **DX tools** — Justfile, Ruff, pre-commit, Vitest, pytest
 - **Agent docs** — `AGENTS.md` (root + per-app), `ARCHITECTURE.md`, `CLAUDE.md` baked in from day one
 
@@ -76,7 +81,15 @@ just db-upgrade
 just dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) — you'll see a working CRUD app (the `items` reference feature).
+Open [http://localhost:3000](http://localhost:3000) — you'll see a login/register screen. After registering, you'll see a working CRUD app (the `items` reference feature).
+
+To seed the database with an admin user and sample data:
+
+```bash
+just seed
+```
+
+The admin panel is available at [http://localhost:8000/admin](http://localhost:8000/admin) (login with admin credentials from `.env`).
 
 ---
 
@@ -87,11 +100,14 @@ my-project/
 ├── apps/
 │   ├── backend/              # FastAPI application
 │   │   ├── app/
-│   │   │   ├── api/          # Routers (HTTP layer)
-│   │   │   ├── services/     # Business logic
-│   │   │   ├── repositories/ # Data access
-│   │   │   ├── models/       # SQLAlchemy models
-│   │   │   ├── schemas/      # Pydantic schemas
+│   │   │   ├── api/          # Routers (HTTP layer: items, auth, health)
+│   │   │   ├── services/     # Business logic (items, auth)
+│   │   │   ├── repositories/ # Data access (items, users)
+│   │   │   ├── models/       # SQLAlchemy models (User, Item)
+│   │   │   ├── schemas/      # Pydantic schemas (items, users)
+│   │   │   ├── auth.py       # JWT + password hashing utilities
+│   │   │   ├── admin.py      # SQLAdmin panel setup
+│   │   │   ├── seed.py       # Database seeding script
 │   │   │   ├── logging.py    # structlog setup
 │   │   │   └── main.py
 │   │   ├── AGENTS.md             # Backend-specific agent rules
@@ -100,7 +116,7 @@ my-project/
 │       ├── AGENTS.md             # Frontend-specific agent rules
 │       └── src/
 │           ├── app/          # Next.js pages & layouts
-│           ├── features/     # Feature modules (e.g. items/)
+│           ├── features/     # Feature modules (auth/, items/)
 │           ├── components/ui # shadcn/ui primitives
 │           └── lib/          # Shared utilities (api-client, store, cn)
 ├── packages/
@@ -129,6 +145,7 @@ just generate-client  # Regenerate TypeScript types from openapi.yaml
 just db-migrate "msg" # Create an Alembic migration
 just db-upgrade       # Apply pending migrations
 just db-downgrade     # Roll back one migration
+just seed             # Seed database with admin user and sample items
 just reset            # Wipe DB and reapply all migrations
 ```
 

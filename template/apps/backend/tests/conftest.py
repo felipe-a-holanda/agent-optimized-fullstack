@@ -3,9 +3,11 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.auth import hash_password
 from app.database import Base
 from app.main import app
 from app.api.deps import get_session
+from app.models.user import User
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
 engine = create_async_engine(TEST_DATABASE_URL, echo=False)
@@ -38,4 +40,31 @@ async def client(session):
     ) as ac:
         yield ac
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+async def test_user(session) -> User:
+    user = User(
+        email="test@example.com",
+        hashed_password=hash_password("testpassword"),
+        full_name="Test User",
+        is_active=True,
+        is_superuser=False,
+    )
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+    return user
+
+
+@pytest.fixture
+async def authenticated_client(client, test_user):
+    """Client with auth cookie set."""
+    response = await client.post(
+        "/api/auth/login",
+        json={"email": "test@example.com", "password": "testpassword"},
+    )
+    assert response.status_code == 200
+    # The cookie is set automatically on the client
+    return client
 {% endraw %}

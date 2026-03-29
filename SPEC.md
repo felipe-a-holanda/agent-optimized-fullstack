@@ -53,7 +53,7 @@
 │   │   ├── alembic/
 │   │   │   ├── env.py
 │   │   │   └── versions/
-│   │   │       └── 001_create_items_table.py
+│   │   │       └── 001_create_tables.py
 │   │   ├── app/
 │   │   │   ├── __init__.py
 │   │   │   ├── main.py
@@ -61,24 +61,34 @@
 │   │   │   ├── database.py
 │   │   │   ├── exceptions.py
 │   │   │   ├── logging.py          # structlog setup
+│   │   │   ├── auth.py             # JWT + password hashing
+│   │   │   ├── admin.py            # SQLAdmin panel
+│   │   │   ├── seed.py             # Database seeding
 │   │   │   ├── models/
 │   │   │   │   ├── __init__.py
-│   │   │   │   └── item.py         # SQLAlchemy model
+│   │   │   │   ├── user.py         # User model
+│   │   │   │   └── item.py         # Item model (owner FK)
 │   │   │   ├── schemas/
 │   │   │   │   ├── __init__.py
-│   │   │   │   └── item.py         # Pydantic schemas
+│   │   │   │   ├── user.py         # User/auth schemas
+│   │   │   │   └── item.py         # Item schemas
 │   │   │   ├── repositories/
 │   │   │   │   ├── __init__.py
-│   │   │   │   └── item.py         # DB access layer
+│   │   │   │   ├── user.py         # User DB access
+│   │   │   │   └── item.py         # Item DB access
 │   │   │   ├── services/
 │   │   │   │   ├── __init__.py
-│   │   │   │   └── item.py         # Business logic
+│   │   │   │   ├── auth.py         # Auth business logic
+│   │   │   │   └── item.py         # Item business logic
 │   │   │   └── api/
 │   │   │       ├── __init__.py
-│   │   │       ├── deps.py         # FastAPI dependencies
-│   │   │       └── items.py        # Route handlers
+│   │   │       ├── deps.py         # FastAPI dependencies + auth
+│   │   │       ├── auth.py         # Auth routes
+│   │   │       ├── health.py       # Health check route
+│   │   │       └── items.py        # Item routes (auth-protected)
 │   │   └── tests/
 │   │       ├── conftest.py
+│   │       ├── test_auth.py
 │   │       └── test_items.py
 │   │
 │   └── frontend/
@@ -100,6 +110,11 @@
 │       │   │   ├── store.ts         # Zustand store for UI state
 │       │   │   └── utils.ts         # cn() helper for shadcn
 │       │   ├── features/
+│       │   │   ├── auth/
+│       │   │   │   ├── api.ts       # Auth hooks (useCurrentUser, useLogin, etc.)
+│       │   │   │   ├── schema.ts    # Zod login/register schemas
+│       │   │   │   ├── LoginForm.tsx
+│       │   │   │   └── RegisterForm.tsx
 │       │   │   └── items/
 │       │   │       ├── api.ts       # TanStack Query hooks
 │       │   │       ├── schema.ts    # Zod validation (mirrors backend)
@@ -122,6 +137,8 @@
 5. **No ad-hoc types**. All request/response types come from the generated client
 6. **Strict layering in backend**: Router → Service → Repository. Routers never touch the database. Services never import FastAPI. Repositories never contain business logic
 7. **One file = one concern**. No file should mix model definitions, business logic, and route handling
+8. **Authentication by default**. All data endpoints require auth. JWT tokens live in httpOnly cookies — agents add `credentials: "include"` and the `get_current_user` dependency
+9. **User isolation**. All user-scoped data is filtered by `owner_id` at the repository level — agents never return another user's data
 
 ---
 
@@ -587,6 +604,16 @@ class Settings(BaseSettings):
     app_name: str = "{{ project_slug }}"
     debug: bool = True
 
+    # Auth
+    secret_key: str = "CHANGE-ME-IN-PRODUCTION"
+    access_token_expire_minutes: int = 30
+    refresh_token_expire_days: int = 7
+    algorithm: str = "HS256"
+
+    # Admin
+    admin_email: str = "admin@example.com"
+    admin_password: str = "admin"
+
     model_config = {"env_file": ".env"}
 
 
@@ -653,6 +680,9 @@ def setup_logging(log_level: str = "INFO") -> None:
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.admin import setup_admin
+from app.api.auth import router as auth_router
+from app.api.health import router as health_router
 from app.api.items import router as items_router
 from app.config import settings
 from app.exceptions import AppException, app_exception_handler
@@ -671,7 +701,14 @@ app.add_middleware(
 )
 
 app.add_exception_handler(AppException, app_exception_handler)
+
+# Routers
+app.include_router(auth_router)
 app.include_router(items_router)
+app.include_router(health_router)
+
+# Admin panel (available at /admin)
+setup_admin(app)
 ```
 
 ### 4.13 Backend: pyproject.toml — `apps/backend/pyproject.toml`
@@ -688,8 +725,14 @@ dependencies = [
     "asyncpg>=0.30",
     "alembic>=1.14",
     "pydantic>=2.0",
+    "pydantic[email]>=2.0",
     "pydantic-settings>=2.0",
     "structlog>=24.0",
+    "passlib[bcrypt]>=1.7",
+    "python-jose[cryptography]>=3.3",
+    "python-multipart>=0.0.9",
+    "sqladmin>=0.19",
+    "itsdangerous>=2.0",
 ]
 
 [project.optional-dependencies]
@@ -723,7 +766,8 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.config import settings
 from app.database import Base
-from app.models.item import Item  # noqa: F401 — ensure model is registered
+from app.models.user import User  # noqa: F401
+from app.models.item import Item  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:
@@ -762,10 +806,10 @@ else:
     asyncio.run(run_migrations_online())
 ```
 
-### 4.15 Backend: First Migration — `apps/backend/alembic/versions/001_create_items_table.py`
+### 4.15 Backend: First Migration — `apps/backend/alembic/versions/001_create_tables.py`
 
 ```python
-"""create items table
+"""create users and items tables
 
 Revision ID: 001
 Revises:
@@ -784,11 +828,24 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     op.create_table(
+        "users",
+        sa.Column("id", sa.Integer(), primary_key=True, index=True),
+        sa.Column("email", sa.String(255), unique=True, index=True, nullable=False),
+        sa.Column("hashed_password", sa.String(255), nullable=False),
+        sa.Column("full_name", sa.String(255), nullable=True),
+        sa.Column("is_active", sa.Boolean(), default=True),
+        sa.Column("is_superuser", sa.Boolean(), default=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=True),
+    )
+
+    op.create_table(
         "items",
         sa.Column("id", sa.Integer(), primary_key=True, index=True),
         sa.Column("title", sa.String(255), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("is_completed", sa.Boolean(), default=False),
+        sa.Column("owner_id", sa.Integer(), sa.ForeignKey("users.id"), index=True, nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=True),
     )
@@ -796,6 +853,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table("items")
+    op.drop_table("users")
 ```
 
 ### 4.16 Backend: Tests — `apps/backend/tests/conftest.py`
@@ -919,6 +977,7 @@ export type { Item, ItemCreate, ItemUpdate };
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...options?.headers,
@@ -1275,6 +1334,10 @@ db-upgrade:
 db-downgrade:
     cd apps/backend && alembic downgrade -1
 
+# Seed database with admin user and sample data
+seed:
+    cd apps/backend && python -m app.seed
+
 # Reset everything
 reset:
     docker compose down -v
@@ -1309,6 +1372,9 @@ volumes:
 ```env
 DATABASE_URL=postgresql+asyncpg://app:app@localhost:5432/app
 NEXT_PUBLIC_API_URL=http://localhost:8000
+SECRET_KEY=CHANGE-ME-IN-PRODUCTION
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=admin
 ```
 
 ### 5.4 `.pre-commit-config.yaml`
@@ -1401,15 +1467,19 @@ Key additions beyond root `AGENTS.md`:
 - Repository error handling: return `None`, never raise
 - structlog usage: `logger.info("event_name", key=value)`, never f-strings in logs
 - Database conventions: plural snake_case tables, `String(n)` with explicit length
+- Authentication: JWT in httpOnly cookies, `get_current_user` dependency, owner_id filtering
+- Admin panel: SQLAdmin at `/admin`, superuser-only, ModelView registration pattern
+- Seeding: `just seed` is idempotent, extend `app/seed.py` for new features
 
 ### 6.2 `apps/frontend/AGENTS.md`
 
-Contains frontend-specific rules for data fetching, types, components, forms, styling, and Zustand usage. See `PROMPT-IMPROVEMENTS.md` Section 1 for full content.
+Contains frontend-specific rules for data fetching, types, components, forms, styling, Zustand usage, and authentication. See `PROMPT-IMPROVEMENTS.md` Section 1 for full content.
 
 Key additions beyond root `AGENTS.md`:
 - Zustand: only for client-side UI state, never server data. Always use selector pattern
 - Components in `components/ui/` never import from `features/` or `lib/api-client.ts`
 - File naming conventions: PascalCase for components, camelCase for hooks/utilities
+- Authentication: `useCurrentUser` hook, protected page pattern, never store tokens in localStorage
 
 ---
 
@@ -1510,6 +1580,7 @@ AI-agent-optimized full-stack monorepo with contracts-first architecture.
 - `just generate-client` — Regenerate TypeScript types from OpenAPI spec
 - `just db-migrate "message"` — Create a new Alembic migration
 - `just db-upgrade` — Apply pending migrations
+- `just seed` — Seed database with admin user and sample data
 - `just reset` — Reset database and reapply migrations
 
 ## Architecture Rules
@@ -1517,10 +1588,12 @@ AI-agent-optimized full-stack monorepo with contracts-first architecture.
 Read AGENTS.md for full rules. Key points:
 - OpenAPI spec is the source of truth
 - Backend: Router → Service → Repository (strict layers)
+- Auth: JWT tokens in httpOnly cookies, `get_current_user` dependency for protected endpoints
 - Frontend: Components → Hooks (features/*/api.ts) → API Client (lib/api-client.ts)
 - Never use fetch() in components
 - Never define duplicate types
 - Always follow the `items` reference feature pattern
+- Admin panel at `/admin` (superuser only, via SQLAdmin)
 
 ## When Adding a New Feature
 
@@ -1529,6 +1602,8 @@ Follow the checklist in AGENTS.md exactly. Copy the `items` feature as template.
 ## Tech Stack
 
 - Backend: Python 3.12, FastAPI, SQLAlchemy 2.0 (async), Alembic, Pydantic v2, structlog
+- Auth: passlib (bcrypt), python-jose (JWT), httpOnly cookies
+- Admin: SQLAdmin at `/admin`
 - Frontend: Next.js 14, TypeScript, Tailwind CSS, shadcn/ui, TanStack Query, React Hook Form, Zod, Zustand
 - Infra: PostgreSQL 16 (Docker), pnpm workspaces, GitHub Actions CI
 - Tools: Ruff (lint/format), pytest, Vitest, pre-commit

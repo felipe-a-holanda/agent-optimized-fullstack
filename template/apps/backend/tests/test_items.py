@@ -4,34 +4,45 @@ from httpx import AsyncClient
 
 
 @pytest.mark.asyncio
-async def test_create_item(client: AsyncClient):
-    response = await client.post("/api/items/", json={"title": "Test item"})
+async def test_items_require_auth(client: AsyncClient):
+    response = await client.get("/api/items/")
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_create_item(authenticated_client: AsyncClient):
+    response = await authenticated_client.post(
+        "/api/items/", json={"title": "Test item"}
+    )
     assert response.status_code == 201
     data = response.json()
     assert data["title"] == "Test item"
     assert data["id"] is not None
+    assert data["owner_id"] is not None
 
 
 @pytest.mark.asyncio
-async def test_list_items(client: AsyncClient):
-    await client.post("/api/items/", json={"title": "Item 1"})
-    await client.post("/api/items/", json={"title": "Item 2"})
-    response = await client.get("/api/items/")
+async def test_list_items(authenticated_client: AsyncClient):
+    await authenticated_client.post("/api/items/", json={"title": "Item 1"})
+    await authenticated_client.post("/api/items/", json={"title": "Item 2"})
+    response = await authenticated_client.get("/api/items/")
     assert response.status_code == 200
     assert len(response.json()) == 2
 
 
 @pytest.mark.asyncio
-async def test_get_item_not_found(client: AsyncClient):
-    response = await client.get("/api/items/999")
+async def test_get_item_not_found(authenticated_client: AsyncClient):
+    response = await authenticated_client.get("/api/items/999")
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_update_item(client: AsyncClient):
-    create = await client.post("/api/items/", json={"title": "Original"})
+async def test_update_item(authenticated_client: AsyncClient):
+    create = await authenticated_client.post(
+        "/api/items/", json={"title": "Original"}
+    )
     item_id = create.json()["id"]
-    response = await client.put(
+    response = await authenticated_client.put(
         f"/api/items/{item_id}", json={"title": "Updated"}
     )
     assert response.status_code == 200
@@ -39,11 +50,13 @@ async def test_update_item(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_delete_item(client: AsyncClient):
-    create = await client.post("/api/items/", json={"title": "To delete"})
+async def test_delete_item(authenticated_client: AsyncClient):
+    create = await authenticated_client.post(
+        "/api/items/", json={"title": "To delete"}
+    )
     item_id = create.json()["id"]
-    response = await client.delete(f"/api/items/{item_id}")
+    response = await authenticated_client.delete(f"/api/items/{item_id}")
     assert response.status_code == 204
-    get_response = await client.get(f"/api/items/{item_id}")
+    get_response = await authenticated_client.get(f"/api/items/{item_id}")
     assert get_response.status_code == 404
 {% endraw %}

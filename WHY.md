@@ -40,7 +40,7 @@ Every decision below follows this principle. More convention = less hallucinatio
 | **Forms** | React Hook Form | Minimal API, high repetition pattern. Agents reliably generate forms using `register` pattern. | Formik | More verbose, more state handling → more room for inconsistency. |
 | **Validation** | Zod | Runtime + static validation unified. Agents can infer types and validation rules from one source. | Yup | Less aligned with TypeScript inference → duplication and drift risk. |
 | **Data Fetching** | TanStack Query | Declarative server-state management. Eliminates manual loading/error logic. Agents follow consistent patterns. | useEffect + fetch | Imperative, error-prone. Agents frequently misuse lifecycle → bugs. |
-| **Backend Framework** | FastAPI | Strong typing, automatic OpenAPI generation, simple mental model. Agents generate endpoints with high accuracy. | Django | Too many abstractions (ORM, admin, settings). Agents struggle with implicit behavior. You lose Django Admin, but gain predictability. |
+| **Backend Framework** | FastAPI | Strong typing, automatic OpenAPI generation, simple mental model. Agents generate endpoints with high accuracy. | Django | Too many abstractions (ORM, admin, settings). Agents struggle with implicit behavior. SQLAdmin provides an admin panel without Django's complexity. |
 | **Backend Schemas** | Pydantic v2 | Explicit, typed schemas. Direct mapping to OpenAPI. Agents can extend safely. | Marshmallow | Less common, more verbose → lower training signal for LLMs. |
 | **ORM** | SQLAlchemy 2.0 (async) | Standard, widely used, explicit patterns. Agents have strong prior knowledge. | Django ORM | Tightly coupled to Django. Less flexible outside its ecosystem. |
 | **Migrations** | Alembic | Declarative, predictable structure (`versions/`). Agents can generate migrations reliably. | Django migrations | Implicit behavior tied to Django models → less explicit control. |
@@ -60,6 +60,10 @@ Every decision below follows this principle. More convention = less hallucinatio
 | **Reference Implementation** | Example feature (CRUD) | Concrete pattern to copy. Agents learn by imitation. | No example | Agents must infer patterns → higher error rate. |
 | **Structured Logging** | structlog | Key-value logging enforces structured output. Agents produce consistent, searchable log events instead of ad-hoc f-strings. | stdlib logging | Free-form messages → agents generate inconsistent, unparseable logs. |
 | **CI/CD** | GitHub Actions | Pre-configured pipeline validates backend, frontend, and contract consistency. Agents get immediate feedback on breaking changes. | No CI | Silent regressions → agents don't know when they break things. |
+| **Authentication** | JWT in httpOnly cookies | Secure by default (no localStorage tokens). Cookie-based auth is transparent to agents — they add `credentials: "include"` and the browser handles the rest. | Bearer tokens in headers | Agents must manually manage token storage, refresh logic, and header injection — more surface area for mistakes. |
+| **Admin Panel** | SQLAdmin | Mounted at `/admin`, uses the same User model. Superuser-only access with session auth. Agents register new models by adding `ModelView` classes. | Django Admin | Requires Django. SQLAdmin gives the same CRUD admin experience within FastAPI's ecosystem. |
+| **Health Check** | `/api/health` endpoint | Returns app + database status. Standard pattern for monitoring, load balancers, and CI health gates. | No health check | Silent infrastructure failures → agents can't verify deployment health. |
+| **Seed Data** | `just seed` script | Idempotent seeding of admin user and sample data. Agents can extend it when adding features. | Manual setup | Agents must create test data manually each time → inconsistent environments. |
 | **Agent Rules** | AGENTS.md (root + per app) | Defines constraints and workflow at three levels: root (architecture), backend (layer rules, logging, DB conventions), frontend (data fetching, forms, Zustand). | No agent spec | Agents improvise → inconsistent architecture. |
 
 ---
@@ -119,6 +123,22 @@ logger.info(f"Created item {item.id} with title {item.title}")
 
 Agents frequently ignore logging or produce inconsistent log messages. By including structlog from day one with explicit rules in the backend `AGENTS.md` (INFO for success, WARNING for expected failures, ERROR for unexpected), agents produce structured, parseable logs without additional prompting.
 
+### Cookie-Based JWT Authentication
+
+```
+Registration/Login
+    │
+    ├─► Backend creates JWT, sets httpOnly cookie
+    │
+    ├─► Browser sends cookie automatically on every request
+    │
+    └─► get_current_user dependency validates token + returns User
+        │
+        └─► All item endpoints filter by owner_id (user isolation)
+```
+
+This pattern was chosen because it minimizes what agents need to manage. With Bearer tokens, agents must implement token storage, refresh flows, and header injection. With httpOnly cookies, the browser handles transport — agents just add `credentials: "include"` to fetch calls and the `get_current_user` dependency to endpoints.
+
 ### Three-Level Agent Instructions
 
 ```
@@ -151,7 +171,6 @@ Optimizing for agents means making tradeoffs that would be wrong for a human-fir
 | Sacrifice | In Favor Of |
 |-----------|-------------|
 | Framework flexibility (Vite + custom router) | Next.js conventions (one way to do routing) |
-| Django Admin UI | Predictable, explicit Python patterns |
 | Custom CSS architecture | Tailwind utilities (no naming decisions) |
 | Gradually typed JS | Full TypeScript from day one |
 | Microservices from the start | Monorepo with clear boundaries |
@@ -172,7 +191,7 @@ Optimizing for agents means making tradeoffs that would be wrong for a human-fir
 ### ❌ Don't use this template when:
 - You need maximum framework flexibility and custom architecture
 - Your team has strong opinions about different stack choices
-- You need Django Admin or a built-in CMS
+- You need a full CMS with content management workflows
 - You're building a non-web project (CLI tool, ML pipeline, etc.)
 
 ---

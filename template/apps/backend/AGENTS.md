@@ -77,6 +77,39 @@
 - Always add `index=True` on primary keys and foreign keys
 - Use `String(n)` with explicit length, never unbounded `String()`
 
+## Authentication
+
+- Auth uses JWT tokens stored in httpOnly cookies
+- Access tokens expire in 30 minutes (configurable via ACCESS_TOKEN_EXPIRE_MINUTES)
+- The `get_current_user` dependency in `app/api/deps.py` extracts and validates the token
+- ALL endpoints that access user data MUST depend on `get_current_user`
+- Public endpoints (health, register, login) do NOT use `get_current_user`
+
+### Adding a new authenticated endpoint
+
+1. Add `current_user: User = Depends(get_current_user)` as a parameter
+2. Pass `current_user.id` as `owner_id` to the service layer
+3. The repository MUST filter by `owner_id` — never return another user's data
+
+### Adding a new public endpoint
+
+1. Do NOT add `get_current_user` dependency
+2. Document in the OpenAPI spec that the endpoint does not require auth
+
+## Admin Panel
+
+- SQLAdmin is mounted at `/admin` on the FastAPI app
+- Login uses the same User model — only superusers can access
+- To register a new model in admin, add a `ModelAdmin` class in `app/admin.py`
+- Follow the pattern of `UserAdmin` and `ItemAdmin`
+- Always set `column_list`, `column_searchable_list`, `can_create`, `can_edit`, `can_delete`
+
+## Seeding
+
+- `just seed` creates an admin user and sample data
+- The seed script is idempotent — running it twice won't duplicate data
+- When adding a new feature, add sample data to `app/seed.py` following the existing pattern
+
 ## Logging
 
 - Use `structlog.get_logger()` in services and repositories

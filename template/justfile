@@ -41,6 +41,10 @@ db-upgrade:
 db-downgrade:
     cd apps/backend && alembic downgrade -1
 
+# Seed database with admin user and sample data
+seed:
+    cd apps/backend && python -m app.seed
+
 # Reset everything
 reset:
     docker compose down -v

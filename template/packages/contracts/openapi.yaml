@@ -4,10 +4,119 @@ info:
   version: "0.1.0"
 
 paths:
+  /api/auth/register:
+    post:
+      operationId: register
+      summary: Register a new user
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserCreate"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "409":
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+
+  /api/auth/login:
+    post:
+      operationId: login
+      summary: Login and receive access token
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserLogin"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/auth/logout:
+    post:
+      operationId: logout
+      summary: Logout and clear access token cookie
+      tags: [auth]
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+
+  /api/auth/me:
+    get:
+      operationId: getMe
+      summary: Get current authenticated user
+      tags: [auth]
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/health:
+    get:
+      operationId: healthCheck
+      summary: Health check endpoint
+      tags: [health]
+      responses:
+        "200":
+          description: Health status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
   /api/items:
     get:
       operationId: listItems
-      summary: List all items
+      summary: List all items for the authenticated user
+      tags: [items]
+      security:
+        - cookieAuth: []
       parameters:
         - name: skip
           in: query
@@ -28,9 +137,14 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Item"
+        "401":
+          description: Not authenticated
     post:
       operationId: createItem
-      summary: Create an item
+      summary: Create an item (requires authentication)
+      tags: [items]
+      security:
+        - cookieAuth: []
       requestBody:
         required: true
         content:
@@ -44,6 +158,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Item"
+        "401":
+          description: Not authenticated
         "422":
           description: Validation error
           content:
@@ -54,7 +170,10 @@ paths:
   {% raw %}/api/items/{item_id}{% endraw %}:
     get:
       operationId: getItem
-      summary: Get an item by ID
+      summary: Get an item by ID (requires authentication)
+      tags: [items]
+      security:
+        - cookieAuth: []
       parameters:
         - name: item_id
           in: path
@@ -68,6 +187,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Item"
+        "401":
+          description: Not authenticated
         "404":
           description: Not found
           content:
@@ -76,7 +197,10 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
     put:
       operationId: updateItem
-      summary: Update an item
+      summary: Update an item (requires authentication)
+      tags: [items]
+      security:
+        - cookieAuth: []
       parameters:
         - name: item_id
           in: path
@@ -96,11 +220,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Item"
+        "401":
+          description: Not authenticated
         "404":
           description: Not found
     delete:
       operationId: deleteItem
-      summary: Delete an item
+      summary: Delete an item (requires authentication)
+      tags: [items]
+      security:
+        - cookieAuth: []
       parameters:
         - name: item_id
           in: path
@@ -110,14 +239,83 @@ paths:
       responses:
         "204":
           description: Deleted
+        "401":
+          description: Not authenticated
         "404":
           description: Not found
 
 components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: access_token
+
   schemas:
+    UserCreate:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        full_name:
+          type: string
+          nullable: true
+
+    UserLogin:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    UserResponse:
+      type: object
+      required: [id, email, is_active, created_at]
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        full_name:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    TokenResponse:
+      type: object
+      required: [access_token, token_type]
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          default: bearer
+
+    HealthResponse:
+      type: object
+      required: [status, app, database]
+      properties:
+        status:
+          type: string
+        app:
+          type: string
+        database:
+          type: string
+
     Item:
       type: object
-      required: [id, title, created_at]
+      required: [id, title, owner_id, created_at]
       properties:
         id:
           type: integer
@@ -130,6 +328,8 @@ components:
         is_completed:
           type: boolean
           default: false
+        owner_id:
+          type: integer
         created_at:
           type: string
           format: date-time

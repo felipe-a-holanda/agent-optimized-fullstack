@@ -59,6 +59,29 @@ src/
 - Feature-specific stores go in `features/*/store.ts` if needed
 - ALWAYS use the selector pattern: `useAppStore((s) => s.sidebarOpen)` — never `useAppStore()`
 
+## Authentication
+
+- Auth state is managed via TanStack Query (`useCurrentUser` hook)
+- The `useCurrentUser` hook calls `GET /api/auth/me` — if it fails, the user is not logged in
+- All API calls use `credentials: "include"` to send cookies automatically
+- NEVER store tokens in localStorage or React state — they live in httpOnly cookies
+- Auth forms live in `features/auth/` (LoginForm, RegisterForm)
+
+### Protected pages pattern
+
+```tsx
+const { data: user, isLoading } = useCurrentUser();
+if (isLoading) return <Loading />;
+if (!user) return <LoginForm />;
+return <ProtectedContent />;
+```
+
+### Adding a new protected page
+
+1. Import `useCurrentUser` from `features/auth/api`
+2. Check loading and unauthenticated states before rendering
+3. All feature hooks (useItems, etc.) will fail with 401 if not logged in — TanStack Query handles this via the `retry: false` on the auth query
+
 ## Adding a new feature
 
 1. Confirm the OpenAPI spec and generated types are up to date (`just generate-client`)

@@ -24,6 +24,7 @@ class ItemResponse(ItemBase):
 
     id: int
     is_completed: bool
+    owner_id: int
     created_at: datetime
     updated_at: datetime | None = None
 {% endraw %}

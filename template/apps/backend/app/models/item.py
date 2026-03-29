@@ -1,8 +1,8 @@
 {% raw %}
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Integer, String, Text, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
@@ -20,4 +20,10 @@ class Item(Base):
     updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), onupdate=func.now(), nullable=True
     )
+
+    # Ownership
+    owner_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), index=True, nullable=False
+    )
+    owner: Mapped["User"] = relationship("User", back_populates="items")
 {% endraw %}
