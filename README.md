@@ -59,7 +59,7 @@ copier copy gh:felipe-a-holanda/fastapi-react-ai-template ./my-project
 copier copy . ./my-project --defaults --overwrite
 
 # Using a data file for pre-defined answers
-copier copy . ./my-project --data-file my-answers.yml --overwrite
+copier copy . ./my-project --data-file my-project-answers.yml --overwrite
 ```
 
 Copier will ask you a few questions:

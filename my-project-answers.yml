@@ -1,0 +1,7 @@
+project_name: My-Project
+project_slug: my-project
+db_name: my-project
+python_version: "3.12"
+node_version: "20"
+author_name: Author
+author_email: author@email.com
