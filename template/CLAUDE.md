@@ -8,6 +8,7 @@ AI-agent-optimized full-stack monorepo with contracts-first architecture.
 
 ## Key Commands
 
+- `just install` — Install all dependencies (run once after cloning)
 - `just dev` — Start database + backend + frontend
 - `just test` — Run all tests
 - `just lint` — Lint all code

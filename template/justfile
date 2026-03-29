@@ -1,30 +1,35 @@
 {% raw %}
 set shell := ["bash", "-cu"]
 
+# Install all dependencies (run once after cloning)
+install:
+    python -m venv apps/backend/.venv
+    apps/backend/.venv/bin/pip install -e "apps/backend/.[dev]"
+    pnpm install
+
 # Development
 dev:
     docker compose up -d db
-    cd apps/backend && uvicorn app.main:app --reload --port 8000 &
+    cd apps/backend && .venv/bin/uvicorn app.main:app --reload --port 8000 &
     cd apps/frontend && pnpm dev
 
 # Build
 build:
-    cd apps/backend && echo "Backend: no build step"
     cd apps/frontend && pnpm build
 
 # Lint
 lint:
-    cd apps/backend && ruff check . && ruff format --check .
+    cd apps/backend && .venv/bin/ruff check . && .venv/bin/ruff format --check .
     cd apps/frontend && pnpm lint
 
 # Format
 format:
-    cd apps/backend && ruff format .
+    cd apps/backend && .venv/bin/ruff format .
     cd apps/frontend && pnpm lint --fix
 
 # Test
 test:
-    cd apps/backend && pytest
+    cd apps/backend && .venv/bin/pytest
     cd apps/frontend && pnpm test
 
 # Generate OpenAPI client types
@@ -33,17 +38,17 @@ generate-client:
 
 # Database
 db-migrate message:
-    cd apps/backend && alembic revision --autogenerate -m "{{message}}"
+    cd apps/backend && .venv/bin/alembic revision --autogenerate -m "{{message}}"
 
 db-upgrade:
-    cd apps/backend && alembic upgrade head
+    cd apps/backend && .venv/bin/alembic upgrade head
 
 db-downgrade:
-    cd apps/backend && alembic downgrade -1
+    cd apps/backend && .venv/bin/alembic downgrade -1
 
 # Seed database with admin user and sample data
 seed:
-    cd apps/backend && python -m app.seed
+    cd apps/backend && .venv/bin/python -m app.seed
 
 # Reset everything
 reset:
