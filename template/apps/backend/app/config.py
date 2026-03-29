@@ -1,8 +1,8 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    database_url: str = "postgresql+asyncpg://app:app@localhost:5432/app"
+    database_url: str = "postgresql+asyncpg://app:app@localhost:54325/app"
     app_name: str = "{{ project_slug }}"
     debug: bool = True
 
@@ -16,7 +16,8 @@ class Settings(BaseSettings):
     admin_email: str = "admin@example.com"
     admin_password: str = "admin"
 
-    model_config = {% raw %}{"env_file": ".env"}{% endraw %}
+    # Root .env is the single source of truth; .env here is for local overrides
+    model_config = SettingsConfigDict(env_file=["../../.env", ".env"], extra="ignore")
 
 
 settings = Settings()

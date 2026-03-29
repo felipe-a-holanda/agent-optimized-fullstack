@@ -14,7 +14,6 @@ from app.database import Base, async_session_maker, engine
 from app.models.item import Item
 from app.models.user import User
 
-
 SAMPLE_ITEMS = [
     {
         "title": "Set up CI/CD pipeline",

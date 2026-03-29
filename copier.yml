@@ -36,6 +36,7 @@ author_email:
   help: "Author email"
 
 _tasks:
+  - ["bash", "-c", "[ -f .env ] || cp .env.example .env"]
   - ["git", "init"]
   - ["git", "add", "."]
   - ["just", "install"]

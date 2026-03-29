@@ -79,29 +79,31 @@ Author email: jane@example.com
 ```bash
 cd my-project
 
-# Install dependencies
-pnpm install
-cd apps/backend && pip install -e ".[dev]" && cd ../..
+# One-time setup: Install all dependencies
+just install
 
-# Start the database
-docker compose up -d db
+# Set up database: create tables + seed admin user & sample data
+just reset
+just seed
 
-# Apply migrations
-just db-upgrade
-
-# Start everything
+# Start development servers (database + backend + frontend)
 just dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) — you'll see a login/register screen. After registering, you'll see a working CRUD app (the `items` reference feature).
+**What just did:**
+- `install` — Created Python venv, installed backend deps, ran `pnpm install`
+- `reset` — Recreated database volume, ran Alembic migrations
+- `seed` — Created admin user (`admin@example.com` / `admin`) + 10 sample items
+- `dev` — Started PostgreSQL, FastAPI (port 8000), Next.js (port 3000)
 
-To seed the database with an admin user and sample data:
+**Available URLs:**
+- **Frontend:** [http://localhost:3000](http://localhost:3000) — Login/register + CRUD demo
+- **Backend API:** [http://localhost:8000/docs](http://localhost:8000/docs) — Interactive API docs
+- **Admin Panel:** [http://localhost:8000/admin](http://localhost:8000/admin) — SQLAdmin (superuser only)
 
-```bash
-just seed
-```
-
-The admin panel is available at [http://localhost:8000/admin](http://localhost:8000/admin) (login with admin credentials from `.env`).
+**Login with:**
+- Email: `admin@example.com`
+- Password: `admin`
 
 ---
 
@@ -219,6 +221,44 @@ Read [`WHY.md`](./WHY.md) for the full design rationale, including a table compa
 | `node_version` | `str` | `20` | Node.js version |
 | `author_name` | `str` | — | Author full name |
 | `author_email` | `str` | — | Author email address |
+
+---
+
+## 🔧 Troubleshooting
+
+### Database Connection Errors
+
+**Error:** `asyncpg.exceptions.InvalidPasswordError: password authentication failed for user "app"`
+
+This is **not** a login password error - it's a database connection issue. Common causes:
+
+1. **PostgreSQL not running**
+   ```bash
+   docker compose up -d db
+   docker compose ps  # Check if db is running
+   ```
+
+2. **Wrong port in DATABASE_URL**
+   - Check `apps/backend/.env` (if it exists)
+   - Default: `postgresql+asyncpg://app:app@localhost:5432/app`
+   - If you have local postgres on 5432, change docker-compose port to `54352:5432` and DATABASE_URL to use `localhost:54352`
+
+3. **Database not initialized**
+   ```bash
+   just reset  # Wipes DB, runs migrations, seeds admin user
+   ```
+
+### Wrong Login Password Behavior
+
+When the **database is connected**, wrong passwords return:
+```json
+{
+  "detail": "Invalid email or password"
+}
+```
+with HTTP status **401 Unauthorized** (not 500).
+
+If you see a 500 error during login, check database connectivity first.
 
 ---
 

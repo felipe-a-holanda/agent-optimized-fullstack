@@ -7,7 +7,7 @@ from app.api.auth import router as auth_router
 from app.api.health import router as health_router
 from app.api.items import router as items_router
 from app.config import settings
-from app.exceptions import AppException, app_exception_handler
+from app.exceptions import AppError, app_exception_handler
 from app.logging import setup_logging
 
 setup_logging()
@@ -22,7 +22,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.add_exception_handler(AppException, app_exception_handler)
+app.add_exception_handler(AppError, app_exception_handler)
 
 # Routers
 app.include_router(auth_router)

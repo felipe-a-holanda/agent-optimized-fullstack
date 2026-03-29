@@ -29,6 +29,8 @@
     "autoprefixer": "^10",
     "vitest": "^2",
     "@testing-library/react": "^16",
-    "@vitejs/plugin-react": "^4"
+    "@vitejs/plugin-react": "^4",
+    "eslint": "^8",
+    "eslint-config-next": "^14"
   }
 }

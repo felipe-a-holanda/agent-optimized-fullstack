@@ -66,7 +66,7 @@
 - Repository: return `None` when entity not found (never raise)
 - Service: check for `None` from repository, raise `HTTPException(404)` with descriptive message
 - Router: let exceptions propagate (FastAPI handles them)
-- For custom business errors: use `AppException` from `app/exceptions.py`
+- For custom business errors: use `AppError` from `app/exceptions.py`
 
 ## Database conventions
 

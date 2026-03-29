@@ -1,11 +1,28 @@
 {% raw %}
 set shell := ["bash", "-cu"]
 
+# First-time setup: install deps, create DB, run migrations, seed data
+setup:
+    @echo "==> Installing dependencies..."
+    python -m venv apps/backend/.venv
+    apps/backend/.venv/bin/pip install -e "apps/backend/.[dev]"
+    pnpm install
+    @echo "==> Setting up database..."
+    docker compose up -d db
+    @echo "==> Waiting for PostgreSQL to be ready..."
+    sleep 3
+    @echo "==> Running migrations..."
+    cd apps/backend && .venv/bin/alembic upgrade head
+    @echo "==> Seeding database with admin user and sample data..."
+    cd apps/backend && .venv/bin/python -m app.seed
+    @echo "✓ Setup complete! Run 'just dev' to start development servers."
+
 # Install all dependencies (run once after cloning)
 install:
     python -m venv apps/backend/.venv
     apps/backend/.venv/bin/pip install -e "apps/backend/.[dev]"
     pnpm install
+    pnpm --filter "*-client" generate
 
 # Development
 dev:
@@ -50,10 +67,17 @@ db-downgrade:
 seed:
     cd apps/backend && .venv/bin/python -m app.seed
 
-# Reset everything
+# Reset database: wipe data, recreate tables, seed admin user
 reset:
+    @echo "==> Stopping and removing database volume..."
     docker compose down -v
+    @echo "==> Starting fresh database..."
     docker compose up -d db
-    sleep 2
+    @echo "==> Waiting for PostgreSQL to be ready..."
+    sleep 3
+    @echo "==> Running migrations..."
     just db-upgrade
+    @echo "==> Seeding database..."
+    just seed
+    @echo "✓ Database reset complete. Admin user: admin@example.com / admin"
 {% endraw %}
