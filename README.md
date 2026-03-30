@@ -1,4 +1,4 @@
-# 🤖 fastapi-react-ai-template
+# 🤖 agent-optimized-fullstack
 
 > A [Copier](https://copier.readthedocs.io/) template for full-stack monorepos **designed to be built by AI agents** — not just humans.
 
@@ -49,7 +49,7 @@ See [`WHY.md`](./WHY.md) for the reasoning behind every choice.
 **Interactive (Standard):**
 
 ```bash
-copier copy gh:felipe-a-holanda/fastapi-react-ai-template ./my-project
+copier copy gh:felipe-a-holanda/agent-optimized-fullstack ./my-project
 ```
 
 **Non-interactive / Local (For testing or automated builds):**
