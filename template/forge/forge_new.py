@@ -62,9 +62,9 @@ TODO: One paragraph describing what this change does and for whom.
 
 ```
 POST /api/resource
-Request:  {{ "field": "value" }}
-Success:  201 {{ "id": 1, "field": "value" }}
-Failure:  400 {{ "detail": "Validation error" }}
+Request:  {% raw %}{{ "field": "value" }}{% endraw %}
+Success:  201 {% raw %}{{ "id": 1, "field": "value" }}{% endraw %}
+Failure:  400 {% raw %}{{ "detail": "Validation error" }}{% endraw %}
 ```
 
 ### Database Schema (if applicable)

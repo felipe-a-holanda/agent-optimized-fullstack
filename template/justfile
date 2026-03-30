@@ -103,16 +103,7 @@ forge-review *change_id:
     #!/usr/bin/env bash
     dir="forge/changes/{{change_id}}"
     if [ -z "{{change_id}}" ]; then
-        dir=$(python3 -c "
-import json, pathlib
-for d in sorted(pathlib.Path('forge/changes').iterdir()):
-    s = d / 'state.json'
-    if s.exists():
-        phase = json.loads(s.read_text()).get('phase','')
-        if phase == 'REVIEW':
-            print(d)
-            break
-" 2>/dev/null)
+        dir=$(python3 -c "import json,pathlib; hits=[str(d) for d in sorted(pathlib.Path('forge/changes').iterdir()) if (d/'state.json').exists() and json.loads((d/'state.json').read_text()).get('phase','')==('REVIEW')]; print(hits[0] if hits else '')" 2>/dev/null)
     fi
     if [ -z "$dir" ] || [ ! -d "$dir" ]; then
         echo "No change in REVIEW phase found. Run 'just forge-plan' first."

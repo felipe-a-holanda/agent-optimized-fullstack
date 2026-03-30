@@ -60,9 +60,9 @@ tasks.md — ordered atomic tasks following the AGENTS.md feature-addition check
 decisions.md — empty log with the standard header only.
 
 state.json — set to:
-  {{ "change_id": "{change_id}", "phase": "REVIEW", "current_task": null, "iteration": 0,
+  {% raw %}{{ "change_id": "{change_id}", "phase": "REVIEW", "current_task": null, "iteration": 0,
      "previous_phase": "PLAN", "last_updated": "<ISO timestamp>",
-     "verification_failures": 0, "max_verification_retries": 3 }}
+     "verification_failures": 0, "max_verification_retries": 3 }}{% endraw %}
 
 Before finalizing, run the adversarial checklist from forge/CLAUDE.md against your own spec.
 Answer every item — "N/A" is valid, skipping is not.
