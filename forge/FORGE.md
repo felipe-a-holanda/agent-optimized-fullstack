@@ -40,20 +40,21 @@ The human is involved in two moments: providing the initial prompt, and approvin
 
 ### 1. PLAN: Create a new change
 
-**Manual (recommended for first time):**
+**Quick start (recommended):**
 ```bash
-# Create the change directory
-mkdir -p forge/changes/add-notifications
+# Bootstrap a new change with template files
+just forge-new add-notifications
 
-# Create the required files
-cd forge/changes/add-notifications
-touch spec.md tasks.md decisions.md state.json
-
-# Edit spec.md: write Goal, Non-Goals, Requirements, Constraints, Edge Cases, I/O, Open Questions
-# Edit tasks.md: break down into atomic tasks with status/touches/depends/verify/notes
-# Edit state.json: {"phase": "PLAN", "change_id": "add-notifications"}
-# Leave decisions.md empty (header only)
+# Or with a description
+just forge-new add-notifications --description "Email notifications for item comments"
 ```
+
+This creates `forge/changes/add-notifications/` with template files for `spec.md`, `tasks.md`, `decisions.md`, and `state.json`.
+
+Then:
+1. Edit `spec.md` — fill in Goal, Requirements, Constraints, I/O
+2. Edit `tasks.md` — break down into atomic tasks following the AGENTS.md checklist
+3. Review your plan
 
 **Or ask the agent to create the plan:**
 ```
@@ -61,7 +62,7 @@ touch spec.md tasks.md decisions.md state.json
 Users should receive an email when someone comments on their item."
 ```
 
-The agent will create the full `forge/changes/add-notifications/` directory with all files.
+The agent will create the full `forge/changes/add-notifications/` directory with all files filled out.
 
 ### 2. REVIEW: Approve the plan
 

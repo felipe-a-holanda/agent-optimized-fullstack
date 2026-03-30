@@ -20,10 +20,16 @@ To check: look in `forge/changes/` for any `state.json` where `phase` is not `"D
 
 ### Starting a New FORGE Change
 
-When instructed to build a new feature:
-1. Create `forge/changes/{change-id}/` with spec.md, tasks.md, decisions.md, state.json
-2. Follow the PLAN phase in `forge/CLAUDE.md`
-3. Present to human for REVIEW before executing
+**Quick start:**
+```bash
+just forge-new {change-id} --description "Brief description"
+```
+
+Then either:
+- Fill out the template files manually
+- Ask the agent: "Help me complete the FORGE plan in `forge/changes/{change-id}/`"
+
+When ready, update `state.json` phase to `"EXECUTE"` and run `just forge`.
 
 See `forge/FORGE.md` for the complete protocol reference.
 

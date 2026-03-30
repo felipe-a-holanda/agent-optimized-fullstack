@@ -93,6 +93,10 @@ reset:
     just seed
     @echo "✓ Database reset complete. Admin user: admin@example.com / admin"
 
+# FORGE: Create a new change (bootstrap spec.md, tasks.md, decisions.md, state.json)
+forge-new change_id *args:
+    python forge/forge_new.py {{change_id}} {{args}}
+
 # FORGE: Run autonomous execution loop (requires Claude Code CLI)
 forge *args:
     python forge/forge_run.py {{args}}

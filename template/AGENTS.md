@@ -5,11 +5,22 @@ This project is an AI-agent-optimized monorepo. Follow these rules strictly.
 ## FORGE Protocol (for multi-task features)
 
 For features that span multiple files or require planning, use the **FORGE protocol**:
-1. Create a change directory: `forge/changes/{change-id}/`
-2. Write `spec.md` (requirements), `tasks.md` (atomic tasks), `decisions.md`, `state.json`
-3. Present to human for review, then execute one task at a time
-4. See `forge/FORGE.md` for the full protocol and `forge/CLAUDE.md` for the operating manual
-5. Run with `just forge` (autonomous) or `just forge-status` (dry-run)
+
+```bash
+# 1. Create a new change
+just forge-new add-notifications --description "Email notifications for item comments"
+
+# 2. Fill out spec.md and tasks.md (or ask agent to help)
+
+# 3. Update state.json phase to "EXECUTE" when ready
+
+# 4. Run autonomous execution
+just forge                    # Run until done
+just forge --max-iterations 5 # Limit to 5 tasks
+just forge-status             # Dry-run preview
+```
+
+See `forge/FORGE.md` for the full protocol and `forge/CLAUDE.md` for the operating manual.
 
 For quick single-file fixes, follow the checklist below directly.
 
