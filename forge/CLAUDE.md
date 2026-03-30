@@ -84,7 +84,7 @@ Steps:
 4. Read `forge/global/verification.md`
 5. Analyze the feature description
 6. Create `forge/changes/{change-id}/` with:
-   - `spec.md` — full spec (Goal, Non-Goals, Requirements, Constraints, Edge Cases, I/O, Open Questions)
+   - `spec.md` — full spec (Goal, Non-Goals, Does Not Touch, Requirements, Constraints, Invariants, Edge Cases, I/O, Open Questions)
    - `tasks.md` — ordered atomic tasks, each with status/touches/depends/verify/notes
    - `decisions.md` — empty log with header
    - `state.json` — `{ "phase": "REVIEW", "change_id": "{change-id}", "current_task": null, ... }`
@@ -110,6 +110,7 @@ Answer each one. "N/A" is valid. Skipping is not.
 10. Does this introduce a security surface needing explicit handling?
 11. Does this feature require OpenAPI contract changes? If so, is the contract task first?
 12. Does this follow the `items` reference pattern? If not, why?
+13. Does this change cross domain boundaries? If so, are the interfaces between domains explicit?
 
 ---
 

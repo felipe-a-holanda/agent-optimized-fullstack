@@ -55,7 +55,7 @@ Claude Code is invoked and **required** to read `AGENTS.md`, `forge/global/archi
 `forge/global/constraints.md`, and `forge/global/verification.md` before writing anything.
 
 It produces:
-- `forge/changes/add-notifications/spec.md` — complete spec (Goal, Non-Goals, Requirements, Constraints, Edge Cases, I/O, Open Questions)
+- `forge/changes/add-notifications/spec.md` — complete spec (Goal, Non-Goals, Does Not Touch, Requirements, Constraints, Invariants, Edge Cases, I/O, Open Questions)
 - `forge/changes/add-notifications/tasks.md` — ordered atomic tasks following the AGENTS.md checklist
 - `forge/changes/add-notifications/decisions.md` — empty log
 - `forge/changes/add-notifications/state.json` — `phase: REVIEW`
@@ -197,8 +197,10 @@ Source of truth for requirements. Created during PLAN, frozen during EXECUTE.
 Required sections:
 - **Goal**: one paragraph, what and for whom
 - **Non-Goals**: what this explicitly does NOT do
+- **Does Not Touch**: explicit list of modules, files, and domains this change must NOT modify (negative boundary — prevents the agent from drifting into adjacent concerns)
 - **Requirements**: numbered, each must be testable
 - **Constraints**: feature-specific (beyond global constraints)
+- **Invariants**: domain rules the implementation must respect (e.g. "a payment MUST be idempotent", "items MUST always have an owner_id"). Optional — omit only if the feature introduces no domain rules worth enforcing.
 - **Edge Cases**: known edge cases and expected behavior
 - **Inputs/Outputs**: API contracts (OpenAPI paths/schemas), Pydantic schemas, UI states (if applicable)
 - **Open Questions**: things the human must decide before execution
@@ -399,6 +401,7 @@ Used during PLAN. The agent must answer each one explicitly before finalizing.
 10. Does this introduce any security surface that needs explicit handling?
 11. Does this feature require OpenAPI contract changes? If so, is the contract task first?
 12. Does this follow the `items` reference pattern? If not, why?
+13. Does this change cross domain boundaries? If so, are the interfaces between domains explicit?
 ```
 
 "Not applicable" is a valid answer. Skipping is not.

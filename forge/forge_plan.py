@@ -44,8 +44,10 @@ After reading, create the following files in forge/changes/{change_id}/:
 spec.md — complete spec with:
   - Goal: one paragraph, what and for whom
   - Non-Goals: what this explicitly does NOT do
+  - Does Not Touch: explicit list of modules, files, and domains this change must NOT modify
   - Requirements: numbered, each must be testable
   - Constraints: feature-specific (beyond global constraints already in forge/global/constraints.md)
+  - Invariants: domain rules the implementation must respect (e.g. "items MUST always have an owner_id"). Omit only if the feature introduces no domain rules worth enforcing.
   - Edge Cases: known edge cases and expected behavior
   - Inputs/Outputs: API endpoints (request/response), DB schema changes (SQL), UI states as applicable
   - Open Questions: anything the human must decide before execution
