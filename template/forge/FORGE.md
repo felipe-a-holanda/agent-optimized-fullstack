@@ -36,89 +36,90 @@ The human is involved in two moments: providing the initial prompt, and approvin
 
 ---
 
-## Getting Started — Full Workflow
+## Pipeline — Four Commands
 
-### 1. PLAN: Create a new change
-
-**Quick start (recommended):**
-```bash
-# Bootstrap a new change with template files
-just forge-new add-notifications
-
-# Or with a description
-just forge-new add-notifications --description "Email notifications for item comments"
+```
+just forge-plan <id> "description"   ← Claude reads arch+constraints → writes full spec → phase=REVIEW
+just forge-review [id]               ← Print spec.md + tasks.md for human review
+just forge-approve [id]              ← Transition REVIEW → EXECUTE, auto-set first task
+just forge                           ← Autonomous execution loop
 ```
 
-This creates `forge/changes/add-notifications/` with template files for `spec.md`, `tasks.md`, `decisions.md`, and `state.json`.
-
-Then:
-1. Edit `spec.md` — fill in Goal, Requirements, Constraints, I/O
-2. Edit `tasks.md` — break down into atomic tasks following the AGENTS.md checklist
-3. Review your plan
-
-**Or ask the agent to create the plan:**
-```
-"Create a FORGE plan for adding email notifications to items. 
-Users should receive an email when someone comments on their item."
-```
-
-The agent will create the full `forge/changes/add-notifications/` directory with all files filled out.
-
-### 2. REVIEW: Approve the plan
-
-Read `spec.md` and `tasks.md`. Then either:
-- **Approve**: Update `state.json` to `{"phase": "EXECUTE", "change_id": "add-notifications", "current_task": "task-01", ...}`
-- **Request changes**: Edit the spec/tasks, keep phase as `"PLAN"`
-- **Reject**: Delete the change directory
-
-### 3. EXECUTE: Run the autonomous loop
+### Step 1 — PLAN
 
 ```bash
-# Autonomous execution (runs until done or blocked)
+just forge-plan add-notifications "Add email notifications when someone comments on an item"
+```
+
+Claude Code is invoked and **required** to read `AGENTS.md`, `forge/global/architecture.md`,
+`forge/global/constraints.md`, and `forge/global/verification.md` before writing anything.
+
+It produces:
+- `forge/changes/add-notifications/spec.md` — complete spec (Goal, Non-Goals, Requirements, Constraints, Edge Cases, I/O, Open Questions)
+- `forge/changes/add-notifications/tasks.md` — ordered atomic tasks following the AGENTS.md checklist
+- `forge/changes/add-notifications/decisions.md` — empty log
+- `forge/changes/add-notifications/state.json` — `phase: REVIEW`
+
+It also runs the adversarial checklist against its own spec before finalizing.
+
+**Re-planning**: if you want to change the description or start over, just re-run `forge-plan` with
+the same ID. It will overwrite only if the change is still in PLAN or REVIEW phase.
+
+### Step 2 — REVIEW
+
+```bash
+just forge-review add-notifications
+# or auto-detect the active REVIEW change:
+just forge-review
+```
+
+Prints `spec.md` then `tasks.md` to stdout. Read carefully — this is the only mandatory human gate.
+
+To request changes: edit `spec.md` or `tasks.md` directly, then re-run `forge-plan` or adjust manually.
+To reject: delete the `forge/changes/add-notifications/` directory.
+
+### Step 3 — APPROVE
+
+```bash
+just forge-approve
+# or target explicitly:
+just forge-approve add-notifications
+```
+
+Updates `state.json`: `phase → EXECUTE`, `current_task → task-01` (first pending task).
+No manual JSON editing required.
+
+### Step 4 — EXECUTE
+
+```bash
 just forge
-
-# Or with options
-just forge --max-iterations 5        # Stop after 5 tasks
-just forge --change add-notifications # Specify which change (if multiple exist)
-
-# Dry-run (see what would happen without executing)
-just forge-status
+# or target a specific change:
+just forge --change add-notifications
+# or limit iterations:
+just forge --max-iterations 10
 ```
 
-The agent will:
-- Read the current task from `tasks.md`
-- Implement it
-- Run verification (`just lint && just test`)
-- Commit with `forge(add-notifications): task-NN — description`
-- Advance to the next task
-- Repeat until all tasks are done or max iterations reached
+The agent runs autonomously until all tasks are done, blocked, or max iterations reached.
+Each task = one commit. Each iteration = one Claude invocation.
 
-### 4. VERIFY: Check progress
+### Check progress
 
 ```bash
-# See current state
-cat forge/changes/add-notifications/state.json
-
-# See task progress
-grep "status:" forge/changes/add-notifications/tasks.md
-
-# See decisions made
-cat forge/changes/add-notifications/decisions.md
-
-# Run verification manually
-just lint && just test
+just forge-status                                         # dry-run: show what would run next
+cat forge/changes/add-notifications/state.json            # current phase + task
+grep "status:" forge/changes/add-notifications/tasks.md  # task progress
+cat forge/changes/add-notifications/decisions.md          # decisions made
 ```
 
-### 5. DONE: Final verification
+### When done
 
-When all tasks are `[x]` or `[!]`, the agent sets `state.json` phase to `"DONE"`.
+When all tasks are `[x]` or `[!]`, the agent sets phase to `"DONE"`. Run final verification:
 
-Run final verification:
 ```bash
 just lint && just test && cd apps/frontend && pnpm build
 ```
 
-If all passes, the change is complete. The `forge/changes/add-notifications/` directory stays in git history as permanent documentation.
+The `forge/changes/add-notifications/` directory stays in git history as permanent documentation.
 
 ---
 
@@ -288,11 +289,16 @@ PLAN ←→ REVIEW → EXECUTE ←→ VERIFY → DONE
 
 ### PLAN
 
-Agent drafts spec + tasks in a single pass. No artificial separation between proposing and critiquing — the agent thinks freely but must produce complete, self-critiqued output.
+Triggered by `just forge-plan <id> "description"`.
 
-Must run the adversarial checklist (see below) before finalizing.
+The planning prompt **mandates** reading `AGENTS.md`, `forge/global/architecture.md`,
+`forge/global/constraints.md`, and `forge/global/verification.md` before writing anything.
+Claude cannot skip these reads — they are hardcoded in the prompt.
 
-Output: complete `/forge/changes/{change-id}/` directory.
+Agent drafts spec + tasks in a single pass, runs the adversarial checklist against its own spec,
+verifies every requirement is covered by at least one task, and sets phase to `REVIEW`.
+
+Output: complete `/forge/changes/{change-id}/` directory with `phase: REVIEW`.
 
 **Stack-specific planning rules:**
 - If the feature touches API contracts, the first task must update `packages/contracts/openapi.yaml`
@@ -303,9 +309,13 @@ Output: complete `/forge/changes/{change-id}/` directory.
 
 ### REVIEW
 
-Human-only gate. Read spec.md and tasks.md. Approve, request changes, or reject.
+Human-only gate. Use `just forge-review` to print spec.md and tasks.md.
 
-This is the **only mandatory human checkpoint**.
+- **Approve**: `just forge-approve` — transitions to EXECUTE, auto-sets first task
+- **Request changes**: edit spec.md/tasks.md directly, or re-run `just forge-plan`
+- **Reject**: delete the change directory
+
+This is the **only mandatory human checkpoint**. No manual state.json editing needed.
 
 ### EXECUTE
 

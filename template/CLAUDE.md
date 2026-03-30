@@ -20,16 +20,19 @@ To check: look in `forge/changes/` for any `state.json` where `phase` is not `"D
 
 ### Starting a New FORGE Change
 
-**Quick start:**
 ```bash
-just forge-new {change-id} --description "Brief description"
+# 1. Plan — Claude reads architecture + constraints and produces the full spec
+just forge-plan {change-id} "Feature description"
+
+# 2. Review — print spec.md + tasks.md to read
+just forge-review
+
+# 3. Approve — transitions REVIEW → EXECUTE, auto-sets first task
+just forge-approve
+
+# 4. Execute — autonomous implementation loop
+just forge
 ```
-
-Then either:
-- Fill out the template files manually
-- Ask the agent: "Help me complete the FORGE plan in `forge/changes/{change-id}/`"
-
-When ready, update `state.json` phase to `"EXECUTE"` and run `just forge`.
 
 See `forge/FORGE.md` for the complete protocol reference.
 

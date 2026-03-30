@@ -93,15 +93,60 @@ reset:
     just seed
     @echo "✓ Database reset complete. Admin user: admin@example.com / admin"
 
-# FORGE: Create a new change (bootstrap spec.md, tasks.md, decisions.md, state.json)
-forge-new change_id *args:
-    python forge/forge_new.py {{change_id}} {{args}}
+# FORGE: Plan a new change — Claude reads architecture + constraints and produces a full spec
+# Usage: just forge-plan add-notifications "Add email notifications for item comments"
+forge-plan change_id description *args:
+    python forge/forge_plan.py {{change_id}} "{{description}}" {{args}}
+
+# FORGE: Review the current plan — print spec.md and tasks.md for the active REVIEW change
+forge-review *change_id:
+    #!/usr/bin/env bash
+    dir="forge/changes/{{change_id}}"
+    if [ -z "{{change_id}}" ]; then
+        dir=$(python3 -c "
+import json, pathlib
+for d in sorted(pathlib.Path('forge/changes').iterdir()):
+    s = d / 'state.json'
+    if s.exists():
+        phase = json.loads(s.read_text()).get('phase','')
+        if phase == 'REVIEW':
+            print(d)
+            break
+" 2>/dev/null)
+    fi
+    if [ -z "$dir" ] || [ ! -d "$dir" ]; then
+        echo "No change in REVIEW phase found. Run 'just forge-plan' first."
+        exit 1
+    fi
+    echo ""
+    echo "════════════════════════════════════════════════════════════"
+    echo "  SPEC: $dir/spec.md"
+    echo "════════════════════════════════════════════════════════════"
+    cat "$dir/spec.md"
+    echo ""
+    echo "════════════════════════════════════════════════════════════"
+    echo "  TASKS: $dir/tasks.md"
+    echo "════════════════════════════════════════════════════════════"
+    cat "$dir/tasks.md"
+
+# FORGE: Approve the current plan — transitions REVIEW → EXECUTE and sets first task
+forge-approve *change_id:
+    #!/usr/bin/env bash
+    if [ -n "{{change_id}}" ]; then
+        python forge/forge_approve.py --change {{change_id}}
+    else
+        python forge/forge_approve.py
+    fi
 
 # FORGE: Run autonomous execution loop (requires Claude Code CLI)
 forge *args:
     python forge/forge_run.py {{args}}
 
-# FORGE: Dry-run — show what the next iteration would do
+# FORGE: Show current state without executing
 forge-status *args:
     python forge/forge_run.py --dry-run {{args}}
+
+# FORGE: Bootstrap empty scaffold (low-level — prefer forge-plan for intelligent planning)
+forge-new change_id *args:
+    python forge/forge_new.py {{change_id}} {{args}}
 {% endraw %}

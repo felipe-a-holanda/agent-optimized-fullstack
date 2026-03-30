@@ -73,21 +73,26 @@ just reset                        # Reset database and reapply migrations
 
 ## PLAN Phase
 
-When creating a new change:
+**Triggered by `just forge-plan <id> "description"`** — you receive a prompt that mandates all reads
+listed below. Do not skip any of them even if the content seems familiar.
 
-1. Read global docs (architecture.md, constraints.md, verification.md)
-2. Read `AGENTS.md` for the feature-addition checklist
-3. Analyze the human's request
-4. Create `forge/changes/{change-id}/` with:
+Steps:
+
+1. Read `AGENTS.md` (feature-addition checklist + architecture rules)
+2. Read `forge/global/architecture.md`
+3. Read `forge/global/constraints.md`
+4. Read `forge/global/verification.md`
+5. Analyze the feature description
+6. Create `forge/changes/{change-id}/` with:
    - `spec.md` — full spec (Goal, Non-Goals, Requirements, Constraints, Edge Cases, I/O, Open Questions)
    - `tasks.md` — ordered atomic tasks, each with status/touches/depends/verify/notes
-   - `decisions.md` — empty (with header)
-   - `state.json` — `{ "phase": "PLAN", "change_id": "{change-id}" }`
-5. Ensure tasks follow the AGENTS.md checklist order:
+   - `decisions.md` — empty log with header
+   - `state.json` — `{ "phase": "REVIEW", "change_id": "{change-id}", "current_task": null, ... }`
+7. Tasks must follow the AGENTS.md checklist order:
    - Contract (openapi.yaml) → Generate client → Backend (model → schema → repo → service → router → deps.py) → Migration → Frontend (hooks → schema → components) → Tests
-6. Run the adversarial checklist against your own spec (see below)
-7. Verify every requirement has at least one task covering it
-8. Present to human for review
+8. Run the adversarial checklist against your own spec (see below)
+9. Verify every requirement has at least one task covering it
+10. Set `state.json` phase to `"REVIEW"` — human will run `just forge-review` then `just forge-approve`
 
 ### Adversarial Checklist (mandatory before finalizing PLAN)
 
